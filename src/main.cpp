@@ -715,7 +715,7 @@ void *writefun(void *datafrommainthread) {
 			} else {
 			}
 			
-			
+			int color_object_rect_width_for_track = 180;
 			if (intracking) {
 				if(!infinaltracking){
 					object_rect = tracker.update(frame);
@@ -727,12 +727,14 @@ void *writefun(void *datafrommainthread) {
 					track_status = 0x01;
 					
 				    Rect2d color_object_rect = findcolorobject(frame);
-				    if(color_object_rect.width>200){
+				    if(color_object_rect.width>color_object_rect_width_for_track&&
+                                       (color_object_rect.width/color_object_rect.height)>5){
 						infinaltracking = true;
 					}
 				}else{
 					object_rect = findcolorobject(frame);
-					if(object_rect.width>200){
+					if(object_rect.width>color_object_rect_width_for_track&&
+                                          (object_rect.width/object_rect.height)>5){
 						rectangle(frame, object_rect, Scalar(0, 0, 255), 1, 1);
 						object_center_x = (object_rect.x + object_rect.width * 0.5)*((float)protocol_width/(float)frame.cols);
 						object_center_y = (object_rect.y + object_rect.height*0.5)*((float)protocol_height/(float)frame.rows);
