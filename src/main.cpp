@@ -210,13 +210,13 @@ void focal_length(unsigned short length){
 			}
 		}
 }
-cv::Rect preselect(cv::Mat img,cv::Mat &out,int thresh){
+cv::Rect preselect(cv::Mat img,cv::Mat &out,int thresh,int type){
 	cv::Mat frame,gray,binary;
 	cv::Rect max = cv::Rect(0,0,0,0);
-	std::vector<std::vector<cv::Point>> contours;
+	std::vector<std::vector<cv::Point> > contours;
 	frame = img.clone();
 	cv::cvtColor(frame,gray,cv::COLOR_BGR2GRAY);
-	cv::threshold(gray,binary,thresh,255,cv::THRESH_BINARY);
+	cv::threshold(gray,binary,thresh,255,type);
 	cv::findContours(binary,contours,cv::RETR_EXTERNAL,cv::CHAIN_APPROX_NONE);
 	for(int i=0;i<contours.size();i++){
 		cv::Rect br = cv::boundingRect(contours[i]);
@@ -329,8 +329,8 @@ void *writefun(void *datafrommainthread) {
 		bool LAB = false;
 		KCFTracker tracker(HOG, FIXEDWINDOW, MULTISCALE, LAB);
 		
-		Mat raw,frame,roi,record_frame;
-		Rect2d roi_rect,object_rect, init_rect, center_rect;
+		Mat raw,frame,roi,preselect_frame,record_frame;
+		Rect2d roi_rect,object_rect, init_rect, center_rect,preselect_rect;
 		int object_center_x, object_center_y;
 		unsigned char xl, xh, yl, yh;
 		
@@ -373,7 +373,8 @@ void *writefun(void *datafrommainthread) {
 		unsigned short temp1 = 0;
 		unsigned short length = 350;
 		focal_length(length);
-		
+		int preselect_thresh = 100;
+		int preselect_type = 0;
 		while (MainControl) {
 			int64 start = cv::getTickCount();
 			
@@ -399,50 +400,6 @@ void *writefun(void *datafrommainthread) {
 						length = 0;
 					 }
 					break;
-			case 'v':length = length+1;
-			         if((length<993)&&(length>0)){
-						 focal_length(length);
-					 }else{
-						length = 0;
-					 }
-					break;
-			case 'b':length = length-1;
-			         if((length<993)&&(length>0)){
-						 focal_length(length);
-					 }else{
-						length = 0;
-					 }
-					break;
-			case 'j':roi_rect.x = roi_rect.x-roi_rect.width*0.1;
-			         if(!isrectinmat(roi_rect,raw)){
-						 roi_rect.x = roi_rect.x+roi_rect.width*0.1;
-					 }
-					 else{
-						 putrectcenter(init_rect,roi_rect);
-					 }
-					 break;
-			case 'l':roi_rect.x = roi_rect.x+roi_rect.width*0.1;
-			         if(!isrectinmat(roi_rect,raw)){
-						 roi_rect.x = roi_rect.x-roi_rect.width*0.1;
-					 }
-					 else{
-						 putrectcenter(init_rect,roi_rect);
-					}
-					break;
-			case 'i':roi_rect.y = roi_rect.y-roi_rect.height*0.1;
-                     if(!isrectinmat(roi_rect,raw)){
-						 roi_rect.y=roi_rect.y+roi_rect.height*0.1;
-					 }
-					 else{
-						 putrectcenter(init_rect,roi_rect);
-					}break;
-			case 'k':roi_rect.y = roi_rect.y+roi_rect.height*0.1;
-					 if(!isrectinmat(roi_rect,raw)){
-						 roi_rect.y = roi_rect.y-roi_rect.height*0.1;
-					 }
-					 else{
-						 putrectcenter(init_rect,roi_rect);
-					}break;
 			case 'u':scale = scale -1;
 			         if(scale<1){
 						 scale = 1;
@@ -460,9 +417,6 @@ void *writefun(void *datafrommainthread) {
 						 center_rect = getcenterrect(raw(roi_rect));
 						 if(!intracking){init_rect = center_rect;}
 					 }
-			         break;
-			case 'p':roi_rect = Rect(0,0,raw.cols,raw.rows);
-			         init_rect = center_rect;
 			         break;
 			case 'n':init_rect.x = init_rect.x - 0.5*(init_rect.width*0.1);
 					 init_rect.width = init_rect.width*1.1;
@@ -487,6 +441,10 @@ void *writefun(void *datafrommainthread) {
 						 init_rect.y = init_rect.y - 0.5*(init_rect.height*0.1);
 					 }else{
 					}break;
+			case 'h':if(preselect_rect.area()>0)init_rect = preselect_rect;break;
+			case 'j':if(preselect_type==0){preselect_type=1;}else{preselect_type=0;}break;
+			case 'k':preselect_thresh++;break;
+			case 'l':preselect_thresh--;break;
 			case 'c':imwrite("raw.jpg",raw);break;
 			case 'e':MainControl = false;break;
 			default:break;
@@ -603,7 +561,12 @@ void *writefun(void *datafrommainthread) {
 				track_status = 1;
 
 			} else {
+				preselect_rect = preselect(frame(init_rect),preselect_frame,preselect_thresh,preselect_type);
+				preselect_rect.x = preselect_rect.x + init_rect.x;
+				preselect_rect.y = preselect_rect.y + init_rect.y;
+				preselect_frame.copyTo(frame(Rect(frame.cols-preselect_frame.cols,frame.rows-preselect_frame.rows,preselect_frame.cols,preselect_frame.rows)));
 				rectangle(frame, init_rect, Scalar(255, 0, 0), 2, 1);
+				rectangle(frame, preselect_rect, Scalar(255,255,0),2,1);
 				object_center_x = protocol_width*0.5;
 				object_center_y = protocol_height*0.5;
 				track_status = 0;
