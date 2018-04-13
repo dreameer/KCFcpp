@@ -210,6 +210,29 @@ void focal_length(unsigned short length){
 			}
 		}
 }
+cv::Rect preselect(cv::Mat img,cv::Mat &out,int thresh){
+	cv::Mat frame,gray,binary;
+	cv::Rect max = cv::Rect(0,0,0,0);
+	std::vector<std::vector<cv::Point>> contours;
+	frame = img.clone();
+	cv::cvtColor(frame,gray,cv::COLOR_BGR2GRAY);
+	cv::threshold(gray,binary,thresh,255,cv::THRESH_BINARY);
+	cv::findContours(binary,contours,cv::RETR_EXTERNAL,cv::CHAIN_APPROX_NONE);
+	for(int i=0;i<contours.size();i++){
+		cv::Rect br = cv::boundingRect(contours[i]);
+		if(br.area()>(img.rows*img.cols*0.1)&&br.area()<(img.rows*img.cols*0.9)){
+			if(br.area()>max.area()){
+				max = br;
+			}
+		}
+	}
+	std::vector<cv::Mat> mv;
+	mv.push_back(binary);
+	mv.push_back(binary);
+	mv.push_back(binary);
+	cv::merge(mv,out);
+	return max;
+}
 void *readfun(void *datafrommainthread) {
 	int m_ttyfd = ((Ppassdatathread) datafrommainthread)->tty_filedescriptor;
 	unsigned char buff[readbuffsize];
