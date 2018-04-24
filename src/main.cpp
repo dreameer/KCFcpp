@@ -373,7 +373,7 @@ void *writefun(void *datafrommainthread) {
 		unsigned short temp1 = 0;
 		unsigned short length = 350;
 		focal_length(length);
-		int preselect_thresh = 100;
+		unsigned short preselect_thresh = 100;
 		int preselect_type = 0;
 		while (MainControl) {
 			int64 start = cv::getTickCount();
@@ -383,7 +383,8 @@ void *writefun(void *datafrommainthread) {
 			
 			
 			switch(keyboardcmd){
-			case 'q':track_turn = 1;break;
+			case 'q':if(preselect_rect.area()>0){init_rect = preselect_rect;}
+			         track_turn = 1;break;
 			case 'w':intracking = false;
 					break;
 			case 'f':length = length+10;
@@ -461,6 +462,7 @@ void *writefun(void *datafrommainthread) {
 					init_rect.x = frame.cols*0.5-init_rect.width*0.5;
 					init_rect.y = frame.rows*0.5-init_rect.height*0.5;
 				}else if(Lock==1){
+					if(preselect_rect.area()>0){init_rect = preselect_rect;}
 					track_turn = 1;
 				}
 				CmdFromUart = 0xffff;
@@ -517,6 +519,11 @@ void *writefun(void *datafrommainthread) {
 			case 0x0007:
 				memcpy(&length,databuff,sizeof(unsigned short));
 				focal_length(length);
+				CmdFromUart = 0xffff;
+				break;
+			case 0x0008:
+				memcpy(&preselect_thresh,databuff,sizeof(unsigned short));
+				if(preselect_thresh<0||preselect_thresh>255){preselect_thresh=100;printf("preselect thresh error\n");}
 				CmdFromUart = 0xffff;
 				break;
 			default:
