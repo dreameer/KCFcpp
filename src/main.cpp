@@ -62,6 +62,8 @@
 #include <sys/stat.h>
 #include <sys/ioctl.h>
 
+#define _USE_MATH_DEFINES
+#include <math.h>
 
 #define readbuffsize 32
 #define databuffsize 4
@@ -232,6 +234,130 @@ cv::Rect preselect(cv::Mat img,cv::Mat &out,int thresh,int type){
 	mv.push_back(binary);
 	cv::merge(mv,out);
 	return max;
+}
+bool issmiller(Vec4i line1,Vec4i line2){
+	float range1 = (float)(line1[1]-line1[3])/(line1[0]-line1[2]);
+	float range2 = (float)(line2[1]-line2[3])/(line2[0]-line2[2]);
+	float angle1 = atan(range1)/M_PI*180;
+	float angle2 = atan(range2)/M_PI*180;
+	float length1 = sqrt(pow((float)(line1[0]-line1[2]),2)+pow((line1[1]-line1[3]),2));
+	float length2 = sqrt(pow((float)(line2[0]-line2[2]),2)+pow((line2[1]-line2[3]),2));
+	float angle_diff = abs(angle1-angle2);
+	float length_diff = (float)abs(length1 - length2)/((length1+length2)*0.5);
+
+	
+	if(angle_diff<5&&length_diff<0.1){
+		printf("smiller:%f %f %f %f\n",angle1,angle2,length1,length2);
+		return true;
+	}else{
+		printf("not smiller:%f %f %f %f\n",angle1,angle2,length1,length2);
+		return false;
+	}
+}
+bool findsimillerlines(vector<Vec4i> &origin,vector<Vec4i> &samelines){
+	if(origin.size()<2){
+		return false;
+	}else{
+		Vec4i reference_line = origin[0];
+		for(int i=1;i<origin.size();i++){
+			if(issmiller(reference_line,origin[i])){
+				samelines.push_back(origin[i]);
+				origin.erase(origin.begin()+i);
+			}
+		}
+		if(samelines.size()>0){
+			samelines.push_back(reference_line);
+			origin.erase(origin.begin());
+			return true;
+		}else{
+			return false;
+		}
+	}
+}
+bool findsticks(vector<Vec4i> &lines,vector<vector<Vec4i>> &sticks)
+{
+	while(lines.size()>1){
+		vector<Vec4i> stick;
+		if(findsimillerlines(lines,stick)){
+			sticks.push_back(stick);
+		}else{
+			lines.erase(lines.begin());
+		}
+	}
+	if(sticks.size()>0){
+		return true;
+	}else{
+		return false;
+	}
+}
+bool findgoodstick(vector<vector<Vec4i>> sticks,vector<Vec4i> &stick){
+	float min_angle = 30;
+	int min_angle_i = -1;
+	for(int i=0;i<sticks.size();i++){
+		vector<Vec4i> stick_ = sticks[i];
+		Vec4i singleline = stick_[0];
+		float range = (float)(singleline[1]-singleline[3])/(singleline[0]-singleline[2]);
+		float angle = atan(range)/M_PI*180;
+		if(angle<min_angle){
+			min_angle = angle;
+			min_angle_i = i;
+		}
+	}
+	if(min_angle_i>-1){
+		stick = sticks[min_angle_i];
+		return true;
+	}else{
+		return false;
+	}
+}
+Point2i getstickcenter(vector<Vec4i> stick){
+	int max_x,max_y,min_x,min_y;
+	vector<Point2i> points;
+	for(int i=0;i<stick.size();i++){
+		points.push_back(Point2i(stick[i][0],stick[i][1]));
+		points.push_back(Point2i(stick[i][2],stick[i][3]));
+	}
+	max_x = min_x = points[0].x;
+	max_y = min_y = points[0].y;
+	for(int i=0;i<points.size();i++){
+		int x = points[i].x;
+		int y = points[i].y;
+		if(x>=max_x){max_x = x;}
+		if(y>=max_y){max_y = y;}
+		if(x<=min_x){min_x = x;}
+		if(y<=min_y){min_y = y;}
+	}
+	Point2i center;
+	center.x = (int)((max_x+min_x)*0.5);
+	center.y = (int)((max_y+min_y)*0.5);
+	return center;
+}
+bool detectstick(Mat roi,Point2i &stick_center){
+	Mat gray,edge;
+	cvtColor(roi,gray,CV_BGR2GRAY);
+	Canny(gray,edge,120,120);
+	float linelength = 0.8;
+	vector<Vec4i> lines;
+	HoughLinesP(edge,lines,1,CV_PI/180,roi.cols*linelength*0.6,roi.cols*linelength,roi.cols*linelength*0.1);
+	if(lines.size()>1){
+		vector<vector<Vec4i>> sticks;
+		vector<Vec4i> goodstick;
+		if(findsticks(lines,sticks)){
+			if(findgoodstick(sticks,goodstick)){
+				stick_center = getstickcenter(goodstick);
+				return true;
+			}else{
+				printf("no good stick\n");
+				return false;
+			}
+		}else{
+			//printf("no sticks\n");
+			return false;
+		}
+	}else{
+		//printf("no lines\n");
+		return false;
+	}
 }
 void *readfun(void *datafrommainthread) {
 	int m_ttyfd = ((Ppassdatathread) datafrommainthread)->tty_filedescriptor;
