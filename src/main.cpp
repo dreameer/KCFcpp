@@ -274,7 +274,7 @@ bool findsimillerlines(vector<Vec4i> &origin,vector<Vec4i> &samelines){
 		}
 	}
 }
-bool findsticks(vector<Vec4i> &lines,vector<vector<Vec4i>> &sticks)
+bool findsticks(vector<Vec4i> &lines,vector<vector<Vec4i> > &sticks)
 {
 	while(lines.size()>1){
 		vector<Vec4i> stick;
@@ -290,7 +290,7 @@ bool findsticks(vector<Vec4i> &lines,vector<vector<Vec4i>> &sticks)
 		return false;
 	}
 }
-bool findgoodstick(vector<vector<Vec4i>> sticks,vector<Vec4i> &stick){
+bool findgoodstick(vector<vector<Vec4i> > sticks,vector<Vec4i> &stick){
 	float min_angle = 30;
 	int min_angle_i = -1;
 	for(int i=0;i<sticks.size();i++){
@@ -340,7 +340,7 @@ bool detectstick(Mat roi,Point2i &stick_center){
 	vector<Vec4i> lines;
 	HoughLinesP(edge,lines,1,CV_PI/180,roi.cols*linelength*0.6,roi.cols*linelength,roi.cols*linelength*0.1);
 	if(lines.size()>1){
-		vector<vector<Vec4i>> sticks;
+		vector<vector<Vec4i> > sticks;
 		vector<Vec4i> goodstick;
 		if(findsticks(lines,sticks)){
 			if(findgoodstick(sticks,goodstick)){
@@ -687,6 +687,15 @@ void *writefun(void *datafrommainthread) {
 			
 			if (intracking) {
 				object_rect = tracker.update(frame);
+				if(isrectinmat(object_rect,frame)){
+					Point2i stick_center;
+					if(detectstick(frame(object_rect),stick_center)){
+						circle(frame,Point(stick_center.x+object_rect.x,stick_center.y+object_rect.y),10,Scalar(0,0,255),2,8,0);
+					}else{
+					}
+				}else{
+				}
+				
 				init_rect = object_rect;
 				rectangle(frame, object_rect, Scalar(0, 0, 255), 2, 1);
 				object_center_x = (object_rect.x + object_rect.width * 0.5)*((float)protocol_width/(float)frame.cols);
@@ -694,12 +703,15 @@ void *writefun(void *datafrommainthread) {
 				track_status = 1;
 
 			} else {
-				preselect_rect = preselect(frame(init_rect),preselect_frame,preselect_thresh,preselect_type);
-				preselect_rect.x = preselect_rect.x + init_rect.x;
-				preselect_rect.y = preselect_rect.y + init_rect.y;
-				preselect_frame.copyTo(frame(Rect(frame.cols-preselect_frame.cols,frame.rows-preselect_frame.rows,preselect_frame.cols,preselect_frame.rows)));
+				if(isrectinmat(init_rect,frame)){
+					preselect_rect = preselect(frame(init_rect),preselect_frame,preselect_thresh,preselect_type);
+					preselect_rect.x = preselect_rect.x + init_rect.x;
+					preselect_rect.y = preselect_rect.y + init_rect.y;
+					preselect_frame.copyTo(frame(Rect(frame.cols-preselect_frame.cols,frame.rows-preselect_frame.rows,preselect_frame.cols,preselect_frame.rows)));
+					rectangle(frame, preselect_rect, Scalar(255,255,0),2,1);
+				}else{
+				}
 				rectangle(frame, init_rect, Scalar(255, 0, 0), 2, 1);
-				rectangle(frame, preselect_rect, Scalar(255,255,0),2,1);
 				object_center_x = protocol_width*0.5;
 				object_center_y = protocol_height*0.5;
 				track_status = 0;
