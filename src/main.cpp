@@ -359,6 +359,35 @@ bool detectstick(Mat roi,Point2i &stick_center){
 		return false;
 	}
 }
+cv::Rect findcolorobject(cv::Mat img)
+{
+	int iLowH = 170;
+	int iHighH = 179;
+
+	int iLowS = 100; 
+	int iHighS = 255;
+
+	int iLowV = 100;
+	int iHighV = 255;
+
+	Mat imgHSV;
+
+	cvtColor(img, imgHSV, COLOR_BGR2HSV); //Convert the captured frame from BGR to HSV
+	Mat imgThresholded;
+	inRange(imgHSV, Scalar(iLowH, iLowS, iLowV), Scalar(iHighH, iHighS, iHighV), imgThresholded); //Threshold the image
+	std::vector<std::vector<cv::Point> > contours;
+	cv::Rect max = cv::Rect(0,0,0,0);
+	cv::findContours(imgThresholded,contours,cv::RETR_EXTERNAL,cv::CHAIN_APPROX_NONE);
+	for(int i=0;i<contours.size();i++){
+		cv::Rect br = cv::boundingRect(contours[i]);
+		if(br.width>0*img.cols){
+			if(br.area()>max.area()){
+				max = br;
+			}
+		}
+	}
+	return max;
+}
 void *readfun(void *datafrommainthread) {
 	int m_ttyfd = ((Ppassdatathread) datafrommainthread)->tty_filedescriptor;
 	unsigned char buff[readbuffsize];
