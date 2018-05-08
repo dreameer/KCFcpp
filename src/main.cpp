@@ -155,7 +155,8 @@ bool isrectinmat(Rect2d rect,Mat frame){
 	if((rect.x>=0)&&
 	   (rect.y>=0)&&
 	   ((rect.x+rect.width)<=frame.cols)&&
-	   ((rect.y+rect.height)<=frame.rows)){
+	   ((rect.y+rect.height)<=frame.rows)&&
+	   (rect.area()>0)){
 		   return true;
 	   }
 	else{
@@ -715,7 +716,8 @@ void *writefun(void *datafrommainthread) {
 			
 			
 			if (intracking) {
-				object_rect = tracker.update(frame);
+				//object_rect = tracker.update(frame);
+				object_rect = findcolorobject(frame);
 				if(isrectinmat(object_rect,frame)){
 					Point2i stick_center;
 					if(detectstick(frame(object_rect),stick_center)){
