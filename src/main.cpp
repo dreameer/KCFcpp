@@ -718,20 +718,26 @@ void *writefun(void *datafrommainthread) {
 			if (intracking) {
 				//object_rect = tracker.update(frame);
 				object_rect = findcolorobject(frame);
-				if(isrectinmat(object_rect,frame)){
-					Point2i stick_center;
-					if(detectstick(frame(object_rect),stick_center)){
-						circle(frame,Point(stick_center.x+object_rect.x,stick_center.y+object_rect.y),10,Scalar(0,0,255),2,8,0);
+				if(object_rect.area()>400){
+					if(isrectinmat(object_rect,frame)){
+						Point2i stick_center;
+						if(detectstick(frame(object_rect),stick_center)){
+							circle(frame,Point(stick_center.x+object_rect.x,stick_center.y+object_rect.y),10,Scalar(0,0,255),2,8,0);
+							}else{
+								}
 					}else{
 					}
+					init_rect = object_rect;
+					rectangle(frame, object_rect, Scalar(0, 0, 255), 2, 1);
+					object_center_x = (object_rect.x + object_rect.width * 0.5)*((float)protocol_width/(float)frame.cols);
+					object_center_y = (object_rect.y + object_rect.height*0.5)*((float)protocol_height/(float)frame.rows);
+					track_status = 1;
 				}else{
+					rectangle(frame, init_rect, Scalar(0, 255, 0), 2, 1);
+					object_center_x = protocol_width*0.5;
+					object_center_y = protocol_height*0.5;
+					track_status = 2;
 				}
-				
-				init_rect = object_rect;
-				rectangle(frame, object_rect, Scalar(0, 0, 255), 2, 1);
-				object_center_x = (object_rect.x + object_rect.width * 0.5)*((float)protocol_width/(float)frame.cols);
-				object_center_y = (object_rect.y + object_rect.height*0.5)*((float)protocol_height/(float)frame.rows);
-				track_status = 1;
 
 			} else {
 				if(isrectinmat(init_rect,frame)){
