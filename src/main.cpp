@@ -67,7 +67,7 @@
 
 #define readbuffsize 32
 #define databuffsize 4
-#define writebuffsize 14
+#define writebuffsize 18
 
 #define protocol_width  1000
 #define protocol_height 1000
@@ -487,8 +487,8 @@ void *writefun(void *datafrommainthread) {
 		
 		Mat raw,frame,roi,preselect_frame,record_frame;
 		Rect2d roi_rect,object_rect, init_rect, center_rect,preselect_rect;
-		int object_center_x, object_center_y;
-		unsigned char xl, xh, yl, yh;
+		int object_center_x, object_center_y, object_width, object_height;
+		
 		
 		
 		
@@ -516,6 +516,7 @@ void *writefun(void *datafrommainthread) {
 		unsigned char track_turn   = 0;
 		char keyboardcmd = '.';
 		bool intracking = false;
+		bool infinaltracking = false;
 		
 		
 		
@@ -542,6 +543,8 @@ void *writefun(void *datafrommainthread) {
 			case 'q':if(preselect_rect.area()>0){init_rect = preselect_rect;}
 			         track_turn = 1;break;
 			case 'w':intracking = false;
+			         infinaltracking = false;
+			         init_rect = getcenterrect(frame);
 					break;
 			case 'f':length = length+10;
 			         if((length<993)&&(length>0)){
@@ -615,8 +618,8 @@ void *writefun(void *datafrommainthread) {
 			    memcpy(&Lock,databuff,sizeof(unsigned char));
 			    if(Lock==0){
 					intracking = false;
-					init_rect.x = frame.cols*0.5-init_rect.width*0.5;
-					init_rect.y = frame.rows*0.5-init_rect.height*0.5;
+					infinaltracking = false;
+					init_rect = getcenterrect(frame);
 				}else if(Lock==1){
 					if(preselect_rect.area()>0){init_rect = preselect_rect;}
 					track_turn = 1;
@@ -716,27 +719,36 @@ void *writefun(void *datafrommainthread) {
 			
 			
 			if (intracking) {
-				//object_rect = tracker.update(frame);
-				object_rect = findcolorobject(frame);
-				if(object_rect.area()>400){
-					if(isrectinmat(object_rect,frame)){
-						Point2i stick_center;
-						if(detectstick(frame(object_rect),stick_center)){
-							circle(frame,Point(stick_center.x+object_rect.x,stick_center.y+object_rect.y),10,Scalar(0,0,255),2,8,0);
-							}else{
-								}
-					}else{
+				if(!infinaltracking){
+				    Rect2d color_object_rect = findcolorobject(frame);
+				    if(color_object_rect.area()>600){
+						infinaltracking = true;
 					}
-					init_rect = object_rect;
-					rectangle(frame, object_rect, Scalar(0, 0, 255), 2, 1);
+					object_rect = tracker.update(frame);
+					rectangle(frame, object_rect, Scalar(0, 0, 255), 4, 1);
 					object_center_x = (object_rect.x + object_rect.width * 0.5)*((float)protocol_width/(float)frame.cols);
 					object_center_y = (object_rect.y + object_rect.height*0.5)*((float)protocol_height/(float)frame.rows);
+					object_width = object_rect.width*((float)protocol_width/(float)frame.cols);
+					object_height = object_rect.height*((float)protocol_width/(float)frame.cols);
 					track_status = 1;
 				}else{
-					rectangle(frame, init_rect, Scalar(0, 255, 0), 2, 1);
-					object_center_x = protocol_width*0.5;
-					object_center_y = protocol_height*0.5;
-					track_status = 2;
+					object_rect = findcolorobject(frame);
+					if(object_rect.area()>400){
+						rectangle(frame, object_rect, Scalar(0, 0, 255), 1, 1);
+						object_center_x = (object_rect.x + object_rect.width * 0.5)*((float)protocol_width/(float)frame.cols);
+						object_center_y = (object_rect.y + object_rect.height*0.5)*((float)protocol_height/(float)frame.rows);
+						object_width = object_rect.width*((float)protocol_width/(float)frame.cols);
+						object_height = object_rect.height*((float)protocol_width/(float)frame.cols);
+						track_status = 1;
+						}
+					else{
+						rectangle(frame, object_rect, Scalar(0, 255, 0), 2, 1);
+						object_center_x = protocol_width*0.5;
+						object_center_y = protocol_height*0.5;
+						object_width = 0;
+						object_height = 0;
+						track_status = 2;
+					}
 				}
 
 			} else {
@@ -751,18 +763,27 @@ void *writefun(void *datafrommainthread) {
 				rectangle(frame, init_rect, Scalar(255, 0, 0), 2, 1);
 				object_center_x = protocol_width*0.5;
 				object_center_y = protocol_height*0.5;
+				object_width = 0;
+				object_height = 0;
 				track_status = 0;
 			}
 
-            short x_offset,y_offset;
-            x_offset =   object_center_x - protocol_width*0.5;
-            y_offset = - (object_center_y - protocol_height*0.5);
-			xl = (x_offset & 0x000000ff);
-			xh = ((x_offset >> 8) & 0x000000ff);
-			yl = (y_offset & 0x000000ff);
-			yh = ((y_offset >> 8) & 0x000000ff);
+            short uart_x_offset,uart_y_offset,uart_w,uart_h;
+            uart_x_offset =   object_center_x - protocol_width*0.5;
+            uart_y_offset = - (object_center_y - protocol_height*0.5);
+            uart_w = object_width;
+            uart_h = object_height;
+            unsigned char xl, xh, yl, yh, wl, wh, hl, hh;
+			xl = (uart_x_offset & 0x000000ff);
+			xh = ((uart_x_offset >> 8) & 0x000000ff);
+			yl = (uart_y_offset & 0x000000ff);
+			yh = ((uart_y_offset >> 8) & 0x000000ff);
+			wl = (uart_w & 0x000000ff);
+			wh = ((uart_w >> 8) & 0x000000ff);
+			hl = (uart_h & 0x000000ff);
+			hh = ((uart_h >> 8) & 0x000000ff);
 			unsigned char buff[writebuffsize] = { 0x55, 0xaa, 0x00, 0x00, 0x05,
-					0x00,xl, xh, yl, yh, track_status, 0xff, 0xff, 0x16 };
+					0x00,xl, xh, yl, yh, wl, wh, hl, hh, track_status, 0xff, 0xff, 0x16 };
 			unsigned int cyc = 0;
 			unsigned char cl, ch;
 			for (int i = 0; i < (writebuffsize - 3); i++) {
@@ -785,7 +806,7 @@ void *writefun(void *datafrommainthread) {
 			putText(frame, patch::to_string((int)roi_rect.width)+"X"+patch::to_string((int)roi_rect.height), Point(10, 40),FONT_HERSHEY_COMPLEX, 1, Scalar(0, 255, 0), 2, 8);
 			putText(frame, patch::to_string((int)fps)+"ms", Point(frame.cols-120, 40),FONT_HERSHEY_COMPLEX, 1, Scalar(0, 255, 0), 2, 8);
 			drawcross(frame,center_rect,Scalar(0,255,0));
-			putText(frame, "x="+patch::to_string(x_offset)+",y="+ patch::to_string(y_offset), Point(frame.cols*0.5-20, frame.rows-40),FONT_HERSHEY_COMPLEX, 1, Scalar(0, 255, 0), 2, 8);
+			putText(frame, "x="+patch::to_string(uart_x_offset)+",y="+ patch::to_string(uart_y_offset), Point(frame.cols*0.5-20, frame.rows-40),FONT_HERSHEY_COMPLEX, 1, Scalar(0, 255, 0), 2, 8);
 			
 			#ifdef RECORDVEDIO
 			if(intracking){
