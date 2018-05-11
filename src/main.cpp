@@ -695,12 +695,12 @@ void *writefun(void *datafrommainthread) {
 			inputcamera >> raw;
 			roi = raw(roi_rect);
 			frame = roi;
-			if (track_turn==1 || (!issamerect(object_rect,init_rect) && intracking)) {
+			if (track_turn==1) {
 				object_rect.x = (int)(init_rect.x);
 				object_rect.y = (int)(init_rect.y);
 				object_rect.width = (int)(init_rect.width);
 				object_rect.height = (int)(init_rect.height);
-				tracker.init(init_rect, frame );
+				tracker.init(object_rect, frame );
 				#ifdef RECORDVEDIO
 			    const string NAME = gettimestrwithavi();
 			    Size S = Size((int) (frame.cols+1)/2,
@@ -720,10 +720,6 @@ void *writefun(void *datafrommainthread) {
 			
 			if (intracking) {
 				if(!infinaltracking){
-				    Rect2d color_object_rect = findcolorobject(frame);
-				    if(color_object_rect.area()>600){
-						infinaltracking = true;
-					}
 					object_rect = tracker.update(frame);
 					rectangle(frame, object_rect, Scalar(0, 0, 255), 4, 1);
 					object_center_x = (object_rect.x + object_rect.width * 0.5)*((float)protocol_width/(float)frame.cols);
@@ -731,7 +727,13 @@ void *writefun(void *datafrommainthread) {
 					object_width = object_rect.width*((float)protocol_width/(float)frame.cols);
 					object_height = object_rect.height*((float)protocol_width/(float)frame.cols);
 					track_status = 1;
+					
+				    Rect2d color_object_rect = findcolorobject(frame);
+				    if(color_object_rect.area()>600){
+						infinaltracking = true;
+					}
 				}else{
+					printf("infinaltracking\n");
 					object_rect = findcolorobject(frame);
 					if(object_rect.area()>400){
 						rectangle(frame, object_rect, Scalar(0, 0, 255), 1, 1);
