@@ -726,14 +726,13 @@ void *writefun(void *datafrommainthread) {
 					object_center_y = (object_rect.y + object_rect.height*0.5)*((float)protocol_height/(float)frame.rows);
 					object_width = object_rect.width*((float)protocol_width/(float)frame.cols);
 					object_height = object_rect.height*((float)protocol_width/(float)frame.cols);
-					track_status = 1;
+					track_status = 0x01;
 					
 				    Rect2d color_object_rect = findcolorobject(frame);
 				    if(color_object_rect.area()>600){
 						infinaltracking = true;
 					}
 				}else{
-					printf("infinaltracking\n");
 					object_rect = findcolorobject(frame);
 					if(object_rect.area()>400){
 						rectangle(frame, object_rect, Scalar(0, 0, 255), 1, 1);
@@ -741,7 +740,7 @@ void *writefun(void *datafrommainthread) {
 						object_center_y = (object_rect.y + object_rect.height*0.5)*((float)protocol_height/(float)frame.rows);
 						object_width = object_rect.width*((float)protocol_width/(float)frame.cols);
 						object_height = object_rect.height*((float)protocol_width/(float)frame.cols);
-						track_status = 1;
+						track_status = 0x11;
 						}
 					else{
 						rectangle(frame, object_rect, Scalar(0, 255, 0), 2, 1);
@@ -749,7 +748,7 @@ void *writefun(void *datafrommainthread) {
 						object_center_y = protocol_height*0.5;
 						object_width = 0;
 						object_height = 0;
-						track_status = 2;
+						track_status = 0x12;
 					}
 				}
 
@@ -767,7 +766,7 @@ void *writefun(void *datafrommainthread) {
 				object_center_y = protocol_height*0.5;
 				object_width = 0;
 				object_height = 0;
-				track_status = 0;
+				track_status = 0x00;
 			}
 
             short uart_x_offset,uart_y_offset,uart_w,uart_h;
@@ -784,7 +783,7 @@ void *writefun(void *datafrommainthread) {
 			wh = ((uart_w >> 8) & 0x000000ff);
 			hl = (uart_h & 0x000000ff);
 			hh = ((uart_h >> 8) & 0x000000ff);
-			unsigned char buff[writebuffsize] = { 0x55, 0xaa, 0x00, 0x00, 0x05,
+			unsigned char buff[writebuffsize] = { 0x55, 0xaa, 0x00, 0x00, 0x09,
 					0x00,xl, xh, yl, yh, wl, wh, hl, hh, track_status, 0xff, 0xff, 0x16 };
 			unsigned int cyc = 0;
 			unsigned char cl, ch;
