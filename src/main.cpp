@@ -119,7 +119,7 @@ int readqpeng(int p_ttyfd, void *dst, int size, int waitnum) {
 		return -1;
 	}
 }
-string gettimestrwithavi(void){
+string gettimestrwithavi(string videodir){
     time_t current_time;
     char* c_time_string;
     current_time = time(NULL);
@@ -134,7 +134,7 @@ string gettimestrwithavi(void){
     timestr.append(&c_time_string[17],2);
     timestr.append(&c_time_string[20],4);
     cout<<timestr<<endl;
-    const string NAME = timestr + ".avi";   // Form the new name with container
+    const string NAME = videodir+timestr + ".avi";   // Form the new name with container
     return NAME;
 }
 void drawcross(Mat frame,Rect2d init_rect,const Scalar& color){
@@ -360,7 +360,7 @@ bool detectstick(Mat roi,Point2i &stick_center){
 		return false;
 	}
 }
-cv::Rect findcolorobject(cv::Mat img)
+Rect findcolorobject(Mat img)
 {
 	int iLowH = 170;
 	int iHighH = 179;
@@ -371,16 +371,15 @@ cv::Rect findcolorobject(cv::Mat img)
 	int iLowV = 100;
 	int iHighV = 255;
 
-	Mat imgHSV;
+	Mat imgHSV,imgThresholded;
 
-	cvtColor(img, imgHSV, COLOR_BGR2HSV); //Convert the captured frame from BGR to HSV
-	Mat imgThresholded;
-	inRange(imgHSV, Scalar(iLowH, iLowS, iLowV), Scalar(iHighH, iHighS, iHighV), imgThresholded); //Threshold the image
-	std::vector<std::vector<cv::Point> > contours;
-	cv::Rect max = cv::Rect(0,0,0,0);
-	cv::findContours(imgThresholded,contours,cv::RETR_EXTERNAL,cv::CHAIN_APPROX_NONE);
+	cvtColor(img, imgHSV, COLOR_BGR2HSV);
+	inRange(imgHSV, Scalar(iLowH, iLowS, iLowV), Scalar(iHighH, iHighS, iHighV), imgThresholded); 
+	vector<vector<Point> > contours;
+	Rect max = Rect(0,0,0,0);
+	findContours(imgThresholded,contours,RETR_EXTERNAL,CHAIN_APPROX_NONE);
 	for(int i=0;i<contours.size();i++){
-		cv::Rect br = cv::boundingRect(contours[i]);
+		Rect br = boundingRect(contours[i]);
 		if(br.width>0*img.cols){
 			if(br.area()>max.area()){
 				max = br;
@@ -605,7 +604,7 @@ void *writefun(void *datafrommainthread) {
 			case 'j':if(preselect_type==0){preselect_type=1;}else{preselect_type=0;}break;
 			case 'k':preselect_thresh++;break;
 			case 'l':preselect_thresh--;break;
-			case 'c':imwrite("raw.jpg",raw);break;
+			case 'c':imwrite("raw.bmp",raw);break;
 			case 'e':MainControl = false;break;
 			default:break;
 			}
@@ -702,7 +701,7 @@ void *writefun(void *datafrommainthread) {
 				object_rect.height = (int)(init_rect.height);
 				tracker.init(object_rect, frame );
 				#ifdef RECORDVEDIO
-			    const string NAME = gettimestrwithavi();
+			    const string NAME = gettimestrwithavi("/home/nvidia/Videos/");
 			    Size S = Size((int) (frame.cols+1)/2,
 			                  (int) (frame.rows+1)/2);
 			    outputVideo.open(NAME, CV_FOURCC('D','I','V','X'), (int)(1000.0/fixed_fps), S, true);
