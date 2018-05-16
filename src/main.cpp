@@ -76,7 +76,7 @@
 #define camera_height 720 
     
 #define RECORDVEDIO
-#define fixed_fps 40
+#define fixed_delay 100
 using namespace std;
 using namespace cv;
 
@@ -124,7 +124,6 @@ string gettimestrwithavi(string videodir){
     char* c_time_string;
     current_time = time(NULL);
     c_time_string = ctime(&current_time);
-    cout<<c_time_string<<endl;
     string timestr;
     timestr.append(&c_time_string[0],3);
     timestr.append(&c_time_string[4],3);
@@ -133,7 +132,6 @@ string gettimestrwithavi(string videodir){
     timestr.append(&c_time_string[14],2);
     timestr.append(&c_time_string[17],2);
     timestr.append(&c_time_string[20],4);
-    cout<<timestr<<endl;
     const string NAME = videodir+timestr + ".avi";   // Form the new name with container
     return NAME;
 }
@@ -362,13 +360,13 @@ bool detectstick(Mat roi,Point2i &stick_center){
 }
 Rect findcolorobject(Mat img)
 {
-	int iLowH = 170;
+	int iLowH = 160;
 	int iHighH = 179;
 
-	int iLowS = 100; 
+	int iLowS = 0; 
 	int iHighS = 255;
 
-	int iLowV = 100;
+	int iLowV = 0;
 	int iHighV = 255;
 
 	Mat imgHSV,imgThresholded;
@@ -531,11 +529,12 @@ void *writefun(void *datafrommainthread) {
 		focal_length(length);
 		unsigned short preselect_thresh = 100;
 		int preselect_type = 0;
+		int64 count_time_last = cv::getTickCount();
 		while (MainControl) {
-			int64 start = cv::getTickCount();
-			
-			
-			
+			int64 count_time_now = cv::getTickCount();
+			double delay_between_two_frame =  (double)(count_time_now-count_time_last)*1000 / cv::getTickFrequency();
+			count_time_last = count_time_now;
+			int64 count_time_begin = count_time_now;
 			
 			
 			switch(keyboardcmd){
@@ -704,7 +703,7 @@ void *writefun(void *datafrommainthread) {
 			    const string NAME = gettimestrwithavi("/home/nvidia/Videos/");
 			    Size S = Size((int) (frame.cols+1)/2,
 			                  (int) (frame.rows+1)/2);
-			    outputVideo.open(NAME, CV_FOURCC('D','I','V','X'), (int)(1000.0/fixed_fps), S, true);
+			    outputVideo.open(NAME, CV_FOURCC('D','I','V','X'), (int)(1000.0/fixed_delay), S, true);
 			    if (!outputVideo.isOpened())
 			    {
 			        cout  << "Could not open the output video for write: " << endl;
@@ -728,12 +727,12 @@ void *writefun(void *datafrommainthread) {
 					track_status = 0x01;
 					
 				    Rect2d color_object_rect = findcolorobject(frame);
-				    if(color_object_rect.area()>600){
+				    if(color_object_rect.width>200){
 						infinaltracking = true;
 					}
 				}else{
 					object_rect = findcolorobject(frame);
-					if(object_rect.area()>400){
+					if(object_rect.width>200){
 						rectangle(frame, object_rect, Scalar(0, 0, 255), 1, 1);
 						object_center_x = (object_rect.x + object_rect.width * 0.5)*((float)protocol_width/(float)frame.cols);
 						object_center_y = (object_rect.y + object_rect.height*0.5)*((float)protocol_height/(float)frame.rows);
@@ -796,15 +795,8 @@ void *writefun(void *datafrommainthread) {
 			for (int i = 0; i < writebuffsize; i++) {
 				write(m_ttyfd, &buff[i], 1);
 			}
-			double fps =  (double)(cv::getTickCount()-start)*1000 / cv::getTickFrequency();
-			if((int)fps<fixed_fps){
-				int control_fps = fixed_fps-(int)fps;
-				usleep(control_fps*1000);
-			}
-			fps =  (double)(cv::getTickCount()-start)*1000 / cv::getTickFrequency();
-			
 			putText(frame, patch::to_string((int)roi_rect.width)+"X"+patch::to_string((int)roi_rect.height), Point(10, 40),FONT_HERSHEY_COMPLEX, 1, Scalar(0, 255, 0), 2, 8);
-			putText(frame, patch::to_string((int)fps)+"ms", Point(frame.cols-120, 40),FONT_HERSHEY_COMPLEX, 1, Scalar(0, 255, 0), 2, 8);
+			putText(frame, patch::to_string((int)delay_between_two_frame)+"ms", Point(frame.cols-120, 40),FONT_HERSHEY_COMPLEX, 1, Scalar(0, 255, 0), 2, 8);
 			drawcross(frame,center_rect,Scalar(0,255,0));
 			putText(frame, "x="+patch::to_string(uart_x_offset)+",y="+ patch::to_string(uart_y_offset), Point(frame.cols*0.5-20, frame.rows-40),FONT_HERSHEY_COMPLEX, 1, Scalar(0, 255, 0), 2, 8);
 			
@@ -816,6 +808,12 @@ void *writefun(void *datafrommainthread) {
 			#endif
 			imshow(windowname, frame);
 			keyboardcmd = (char) waitKey(1);
+			
+			double delay_in_oneframe =  (double)(cv::getTickCount()-count_time_begin)*1000 / cv::getTickFrequency();
+			if((int)(delay_in_oneframe+10)<fixed_delay){
+				int control_delay = fixed_delay-(int)delay_in_oneframe;
+				usleep(control_delay*1000);
+			}
 		}
 	}
 	printf("end write thread\n");
